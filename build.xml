@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project>
+<!--
+ Telsis Limited jOCP library.
+
+ Copyright (c) 2010-2013 Telsis Limited.
+
+ This Program is free software: you can copy, redistribute and/or modify it under 
+ the terms of the GNU General Public License as published by the Free Software 
+ Foundation, either version 3 of the License or (at your option) any later version.
+
+ If you modify this Program you must mark it as changed by you and give a relevant date.
+  
+ This Program is published in the hope that it will be useful, but WITHOUT ANY 
+ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ PARTICULAR PURPOSE. See the GNU General Public License for more details. You should 
+ receive a copy of the GNU General Public License along with this program. If not, 
+ see <http//www.gnu.org/licenses/>.
+ 
+ In making commercial use of this Program you indemnify Telsis Limited and all of its related 
+ Companies for any contractual assumptions of liability that may be imposed on Telsis Limited 
+ or any of its related Companies.
+-->
+<project name="jOCP" default="compile" basedir="."
+    xmlns:cb="antlib:net.sourceforge.cobertura.ant"
+    xmlns:cs="antlib:com.puppycrawl.tools.checkstyle"
+    xmlns:fb="http://findbugs.sourceforge.net/"
+    xmlns:ivy="antlib:org.apache.ivy.ant"
+    xmlns:pmd="http://pmd.sourceforge.net/">
+
+    <property environment="env" />
+    <!-- default revision number -->
+    <property name="revision" value="0" />
+
+    <!-- Configuration -->
+    <property name="app.name" value="${ant.project.name}" />
+    <property name="app.version" value="1.3.${revision}" />
+    <!-- debug is required for line numbers in output -->
+    <property name="compile.debug" value="true" />
+    <!-- enable Java 6 features -->
+    <property name="compile.source" value="1.6" />
+
+    <!-- Input directories -->
+    <property name="src.dir" value="src" />
+
+    <!-- Library directories -->
+    <property name="libs.dir" value="libs" />
+    <property name="system.lib.dir" value="/usr/share/java" />
+
+    <!-- Intermediate directories -->
+    <property name="build.dir" value="build" />
+
+    <!-- Output directories and files -->
+    <property name="doc.dir" value="docs" />
+    <property name="dist.dir" value="dist" />
+    <property name="dist.manifest" value="${dist.dir}/MANIFEST.MF" />
+
+    <!-- Ivy configuration -->
+    <property name="ivy.install.version" value="2.2.0" />
+    <condition property="ivy.home" value="${env.IVY_HOME}">
+        <isset property="env.IVY_HOME" />
+    </condition>
+    <property name="ivy.home" value="${user.home}/.ivy" />
+    <property name="ivy.jar.dir" value="${ivy.home}/lib" />
+    <property name="ivy.jar.file" value="${ivy.jar.dir}/ivy.jar" />
+    <property name="ivy.base" value="http://seppuku.eng.telsis.local/ivy" />
+    <property name="ivy.location" value="${ivy.base}/ivy-${ivy.install.version}.jar" />
+    <property name="ivy.settings" value="${ivy.base}/ivysettings.xml" />
+    <property name="ivy.file" location="ivy.xml" />
+    <condition property="ivy.available">
+        <available file="${ivy.jar.file}" />
+    </condition>
+
+    <!-- System libraries -->
+    <path id="system-only.build.classpath">
+    </path>
+    <path id="system.build.classpath">
+        <pathelement path="${system.lib.dir}/log4j.jar" />
+        <path refid="system-only.build.classpath" />
+    </path>
+
+   <!-- Test configuration -->
+   <property name="libs.test.dir" value="test-libs" />
+   <property name="build.instrumented.dir" value="instrumented" />
+   <property name="results.dir" value="results" />
+   <property name="cobertura.datafile" value="${results.dir}/cobertura.ser" />
+   <property name="checkstyle.config" value="sun_checks.xml" />
+   <property name="checkstyle.results" value="${results.dir}/checkstyle_errors.xml" />
+   <property name="cpd.results" value="${results.dir}/cpd.xml" />
+   <property name="findbugs.results" value="${results.dir}/findbugs.xml" />
+
+    <!-- General targets -->
+
+    <target name="all"
+            depends="clean, compile, dist"
+            description="Clean, test, compile and create the distribution files" />
+
+    <target name="clean"
+            description="Delete old intermediate and output directories">
+        <delete dir="${build.dir}" />
+        <delete dir="${build.instrumented.dir}" />
+        <delete dir="${dist.dir}" />
+        <delete dir="${doc.dir}" />
+        <delete dir="${results.dir}" />
+    </target>
+
+    <target name="pom"
+           depends="compile"
+           description="Make the Maven POM for the project">
+        <ivy:makepom ivyfile="${basedir}/ivy.xml" pomfile="${basedir}/pom.xml" conf="build,runtime">
+              <mapping conf="build" scope="compile"/>
+              <mapping conf="runtime" scope="runtime"/>
+        </ivy:makepom>
+    </target>
+    <!-- Compilation targets -->
+
+    <target name="version" 
+            description="Update the version files">
+        <replace file="${src.dir}/com/telsis/jocp/Version.java"
+                 token="Internal Build"
+                 value="${app.version}" />
+    </target>
+
+    <target name="compile"
+            depends="version, -build-classpath"
+            description="Compile Java sources">
+        <mkdir dir="${build.dir}" />
+
+        <javac srcdir="${src.dir}"
+               destdir="${build.dir}"
+               debug="${compile.debug}"
+               deprecation="${compile.deprecation}"
+               optimize="${compile.optimize}"
+               source="${compile.source}"
+               includeAntRuntime="false">
+            <classpath>
+                <fileset dir="${libs.dir}" erroronmissingdir="false">
+                    <include name="**/*.jar" />
+                </fileset>
+                <path refid="build.classpath" />
+            </classpath>
+        </javac>
+    </target>
+    
+    <!-- Output targets -->
+
+    <target name="doc"
+            depends="-build-classpath"
+            description="Build documentation">
+        <mkdir dir="${doc.dir}" />
+        <javadoc sourcepath="${src.dir}" destdir="${doc.dir}">
+            <packageset dir="${src.dir}" />
+            <classpath>
+                <fileset dir="${libs.dir}" erroronmissingdir="false">
+                    <include name="**/*.jar" />
+                </fileset>
+                <path refid="build.classpath" />
+            </classpath>
+        </javadoc>
+    </target>
+
+    <target name="dist"
+            depends="compile, doc"
+            description="Create binary distributions">
+        <mkdir dir="${dist.dir}" />
+
+        <manifest file="${dist.manifest}">
+            <attribute name="Implementation-Title" value="${app.name}" />
+            <attribute name="Implementation-Version" value="${app.version}" />
+            <attribute name="Implementation-Vendor" value="Telsis Ltd." />
+        </manifest>
+        <jar jarfile="${dist.dir}/${app.name}-${app.version}.jar"
+            manifest="${dist.manifest}">
+            <fileset dir="${build.dir}" />
+        </jar>
+        <jar jarfile="${dist.dir}/${app.name}-docs-${app.version}.jar"
+            manifest="${dist.manifest}">
+            <fileset dir="${doc.dir}" />
+        </jar>
+    </target>
+
+    <!-- Ivy targets -->
+    <target name="-ivy-download"
+            unless="ivy.available">
+        <!-- Downloads Ivy from the engineering mirror if required -->
+        <mkdir dir="${ivy.jar.dir}"/>
+        <get src="${ivy.location}" dest="${ivy.jar.file}" usetimestamp="true"/>
+    </target>
+
+    <target name="-ivy-init"
+            depends="-ivy-download"
+            unless="ivy.configured">
+        <!-- Registers the Ivy task and loads the configuration -->
+        <path id="ivy.lib.path">
+            <fileset dir="${ivy.jar.dir}" includes="*.jar" />
+        </path>
+        <taskdef classpathref="ivy.lib.path"
+                 resource="org/apache/ivy/ant/antlib.xml"
+                 uri="antlib:org.apache.ivy.ant" />
+        <ivy:configure url="${ivy.settings}" />
+        <property name="ivy.configured" value="" />
+    </target>
+
+    <target name="-ivy-tasks"
+            depends="-ivy-init">
+        <!-- Resolves the libraries required by the tasks in this Ant file -->
+        <ivy:resolve conf="anttasks" />
+        <ivy:cachepath pathid="tasks.classpath" conf="anttasks" type="jar"/>
+    </target>
+
+    <target name="-build-classpath" depends="-ivy-build, -system-build"/>
+
+    <target name="-ivy-build"
+            depends="-ivy-init"
+            unless="build.classpath.system">
+        <!-- Resolves the libraries required to compile the program -->
+        <ivy:resolve conf="build" type="jar" />
+        <ivy:cachepath pathid="ivy.build.classpath" conf="build" type="jar" />
+        <path id="build.classpath">
+            <path refid="system-only.build.classpath" />
+            <path refid="ivy.build.classpath" />
+        </path>
+    </target>
+
+    <target name="-system-build"
+            if="build.classpath.system">
+        <!-- Use the system libraries instead of Ivy where possible -->
+        <ivy:resolve conf="build-core" type="jar" />
+        <ivy:cachepath pathid="ivy-only.build.classpath" conf="build-core" type="jar" />
+        <path id="build.classpath">
+            <path refid="system.build.classpath" />
+            <path refid="ivy-only.build.classpath" />
+        </path>
+    </target>
+
+    <target name="-ivy-runtime"
+            depends="-ivy-init">
+        <!-- Resolves the libraries required to run the program -->
+        <ivy:resolve conf="runtime" type="jar" />
+        <ivy:cachepath pathid="runtime.classpath" conf="runtime" type="jar"/>
+    </target>
+
+    <target name="-ivy-test-build"
+            depends="-ivy-init">
+        <!-- Resolves the libraries required to compile the tests -->
+        <ivy:resolve conf="test-build" type="jar" />
+        <ivy:cachepath pathid="build.test.classpath" conf="test-build" type="jar" />
+    </target>
+
+    <target name="-ivy-test-runtime"
+            depends="-ivy-init">
+        <!-- Resolves the libraries required to run the tests -->
+        <ivy:resolve conf="test-runtime" type="jar" />
+        <ivy:cachepath pathid="runtime.test.classpath" conf="test-runtime" type="jar"/>
+    </target>
+
+    <!-- Ant targets -->
+    <target name="-ant-tasks"
+            depends="-ivy-tasks">
+        <!-- Registers the tasks used by this Ant file -->
+        <taskdef classpathref="tasks.classpath"
+                 resource="com/puppycrawl/tools/checkstyle/antlib.xml"
+                 uri="antlib:com.puppycrawl.tools.checkstyle" />
+        <taskdef classpathref="tasks.classpath"
+                 name="findbugs"
+                 classname="edu.umd.cs.findbugs.anttask.FindBugsTask"
+                 uri="http://findbugs.sourceforge.net/" />
+        <taskdef classpathref="tasks.classpath"
+                 name="cpd"
+                 classname="net.sourceforge.pmd.cpd.CPDTask"
+                 uri="http://pmd.sourceforge.net/" />
+    </target>
+
+    <target name="compile-instrument"
+            depends="compile, -ant-tasks"
+            description="Instrument the compiled code">
+        <mkdir dir="${build.instrumented.dir}" />
+
+        <cb:instrument todir="${build.instrumented.dir}"
+                       datafile="${cobertura.datafile}">
+            <ignore regex="org.apache.log4j.*" />
+            <fileset dir="${build.dir}">
+                <include name="**/*.class" />
+            </fileset>
+        </cb:instrument>
+    </target>
+
+
+    <!-- Test targets -->
+
+    <target name="checkstyle"
+            depends="compile, -ant-tasks, -ivy-build, -ivy-test-build"
+            description="Generates a report of code convention violations">
+        <mkdir dir="${results.dir}" />
+
+        <cs:checkstyle config="${checkstyle.config}" failOnViolation="false">
+            <classpath>
+                <path location="${build.dir}" />
+                <fileset dir="${libs.dir}" erroronmissingdir="false">
+                    <include name="**/*.jar" />
+                </fileset>
+                <path refid="build.classpath" />
+            </classpath>
+            <fileset dir="${src.dir}" includes="**/*.java" />
+            <formatter type="xml" toFile="${checkstyle.results}" />
+        </cs:checkstyle>
+    </target>
+
+    <target name="cpd"
+            depends="-ant-tasks"
+            description="Generates a report of duplicate code">
+        <mkdir dir="${results.dir}" />
+
+        <pmd:cpd minimumTokenCount="100" format="xml" outputFile="${cpd.results}">
+            <fileset dir="${src.dir}" includes="**/*.java" />
+        </pmd:cpd>
+    </target>
+
+    <target name="findbugs"
+            depends="compile, -ant-tasks, -ivy-build, -ivy-test-build"
+            description="Generates a report of potential bugs">
+        <mkdir dir="${results.dir}" />
+
+        <fb:findbugs classpath=""
+                     pluginList=""
+                     output="xml"
+                     outputFile="${findbugs.results}">
+            <sourcePath path="${src.dir}" />
+            <class location="${build.dir}" />
+            <classpath refid="tasks.classpath" />
+            <auxClasspath>
+                <fileset dir="${libs.dir}" erroronmissingdir="false">
+                    <include name="**/*.jar" />
+                </fileset>
+                <fileset dir="${libs.test.dir}" erroronmissingdir="false">
+                    <include name="**/*.jar" />
+                </fileset>
+                <path refid="build.classpath" />
+            </auxClasspath>
+        </fb:findbugs>
+    </target>
+
+    <target name="test"
+            depends="static, analysis"
+            description="Run all tests" />
+
+    <target name="static"
+            depends="cpd"
+            description="Run the static tests. These tests use the source code only" />
+
+    <target name="analysis"
+            depends="compile, checkstyle, findbugs"
+            description="Run the post-build analysis. These tests require the compiled output" />
+
+</project>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Telsis Limited jOCP library.
+
+ Copyright (c) 2010-2013 Telsis Limited.
+
+ This Program is free software: you can copy, redistribute and/or modify it under 
+ the terms of the GNU General Public License as published by the Free Software 
+ Foundation, either version 3 of the License or (at your option) any later version.
+
+ If you modify this Program you must mark it as changed by you and give a relevant date.
+  
+ This Program is published in the hope that it will be useful, but WITHOUT ANY 
+ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+ PARTICULAR PURPOSE. See the GNU General Public License for more details. You should 
+ receive a copy of the GNU General Public License along with this program. If not, 
+ see <http//www.gnu.org/licenses/>.
+ 
+ In making commercial use of this Program you indemnify Telsis Limited and all of its related 
+ Companies for any contractual assumptions of liability that may be imposed on Telsis Limited 
+ or any of its related Companies.
+-->
+<ivy-module version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="http://ant.apache.org/ivy/schemas/ivy.xsd">
+    <info organisation="com.telsis" module="jOCP" status="integration" />
+	
+    <configurations>
+        <conf name="default"
+              extends="runtime"
+              description="This module, including runtime dependencies"
+              visibility="public" />
+        <conf name="anttasks"
+              description="Ant tasks"
+              visibility="private" />
+        <conf name="build"
+              description="All dependencies required to compile the main classes"
+              extends="build-core"
+              transitive="false"
+              visibility="private" />
+        <conf name="build-core"
+              description="Compile-time dependencies only available through Ivy"
+              transitive="false"
+              visibility="private" />
+        <conf name="runtime"
+              description="All dependencies required to run the main classes"
+              visibility="public" />
+        <conf name="test-build"
+              extends="test-runtime"
+              description="Additional libraries required to compile the test classes"
+              visibility="private"
+              transitive="false" />
+        <conf name="test-runtime"
+              description="All libraries required to run the test classes"
+              visibility="public" />
+    </configurations>
+    
+    <publications>
+        <artifact conf="default" name="jOCP" />
+        <artifact conf="default" type="javadoc" name="jOCP-docs" ext="jar" />
+    </publications>
+    
+    <dependencies>
+        <dependency org="org.apache.log4j"
+                    name="log4j"
+                    rev="1.2.14">
+            <conf name="build" mapped="default" />
+            <conf name="runtime" mapped="default" />
+        </dependency>
+
+        <dependency org="com.puppycrawl"
+                    name="checkstyle"
+                    rev="5.4">
+            <conf name="anttasks" mapped="default" />
+        </dependency>
+
+        <dependency org="org.objectweb.asm"
+                    name="asm"
+                    rev="3.1"> 
+            <conf name="anttasks" mapped="default" />
+        </dependency>
+            
+        <dependency org="edu.umd.cs"
+                    name="findbugs"
+                    rev="2.0.1">
+            <conf name="anttasks" mapped="ant, annotations" />
+            <conf name="build" mapped="annotations" />
+            <conf name="test-build" mapped="annotations" />
+        </dependency>
+        
+        <dependency org="net.sourceforge.pmd"
+                    name="pmd"
+                    rev="4.2.5">
+            <conf name="anttasks" mapped="default" />
+        </dependency>
+    </dependencies>
+</ivy-module>
